@@ -535,7 +535,7 @@ class TrainerDPMixin(ABC):
         if self.on_colab_kaggle:
             self.save_spawn_weights(model)
 
-    def dp_train(self, model):
+    def dp_train(self, model, skip_coefficients_and_linear: bool = False):
 
         # CHOOSE OPTIMIZER
         # allow for lr schedulers as well
@@ -572,7 +572,7 @@ class TrainerDPMixin(ABC):
 
         model = LightningDataParallel(model, device_ids=device_ids)
 
-        self.run_pretrain_routine(model)
+        self.run_pretrain_routine(model, skip_coefficients_and_linear=skip_coefficients_and_linear)
 
         model.forward = model_autocast_original_forward
 

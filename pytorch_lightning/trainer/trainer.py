@@ -780,7 +780,8 @@ class Trainer(
             self,
             model: LightningModule,
             train_dataloader: Optional[DataLoader] = None,
-            val_dataloaders: Optional[Union[DataLoader, List[DataLoader]]] = None
+            val_dataloaders: Optional[Union[DataLoader, List[DataLoader]]] = None,
+            skip_coefficients_and_linear: bool = False
     ):
         r"""
         Runs the full optimization routine.
@@ -885,7 +886,7 @@ class Trainer(
         # 1 gpu or dp option triggers training using DP module
         # easier to avoid NCCL issues
         elif self.use_dp:
-            self.dp_train(model)
+            self.dp_train(model, skip_coefficients_and_linear=skip_coefficients_and_linear)
 
         elif self.use_horovod:
             self.horovod_train(model)
@@ -952,7 +953,7 @@ class Trainer(
         if test_dataloaders is not None:
             model.test_dataloader = _PatchDataLoader(test_dataloaders)
 
-    def run_pretrain_routine(self, model: LightningModule):
+    def run_pretrain_routine(self, model: LightningModule, skip_coefficients_and_linear: bool = False):
         """Sanity check a few things before starting actual training.
 
         Args:
@@ -1010,7 +1011,7 @@ class Trainer(
         self.configure_checkpoint_callback()
 
         # restore training and model before hpc call
-        self.restore_weights(model)
+        self.restore_weights(model, skip_coefficients_and_linear=skip_coefficients_and_linear)
 
         # when testing requested only run test and return
         if self.testing:

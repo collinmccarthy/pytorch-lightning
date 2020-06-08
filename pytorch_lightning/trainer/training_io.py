@@ -160,7 +160,7 @@ class TrainerIOMixin(ABC):
     # --------------------
     # CHECK-POINTING
     # --------------------
-    def restore_weights(self, model: LightningModule):
+    def restore_weights(self, model: LightningModule, skip_coefficients_and_linear: bool = False):
         """
         We attempt to restore weights in this order:
         1. HPC weights.
@@ -180,7 +180,8 @@ class TrainerIOMixin(ABC):
 
         if not did_restore_hpc_weights:
             if self.resume_from_checkpoint is not None:
-                self.restore(self.resume_from_checkpoint, on_gpu=self.on_gpu)
+                self.restore(self.resume_from_checkpoint, on_gpu=self.on_gpu, 
+                             skip_coefficients_and_linear=skip_coefficients_and_linear)
 
         # wait for all models to restore weights
         if self.use_ddp or self.use_ddp2:
@@ -279,7 +280,7 @@ class TrainerIOMixin(ABC):
                                f' An attribute is not picklable {err}')
                 self._atomic_save(checkpoint, filepath)
 
-    def restore(self, checkpoint_path: str, on_gpu: bool):
+    def restore(self, checkpoint_path: str, on_gpu: bool, skip_coefficients_and_linear: bool = False):
         """
         Restore training state from checkpoint.
         Also restores all training state like:
@@ -293,13 +294,26 @@ class TrainerIOMixin(ABC):
         #     checkpoint = torch.load(checkpoint_path)
         # else:
         # load on CPU first
+        
+        # TODO: Make this more robust
         checkpoint = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
 
         # load model state
         model = self.get_model()
 
         # load the state_dict on the model automatically
-        model.load_state_dict(checkpoint['state_dict'])
+        checkpoint_state_dict = checkpoint['state_dict']
+        strict = True
+        
+        if skip_coefficients_and_linear:
+            strict = False
+            for name, _tensor in dict(checkpoint_state_dict).items():
+                if 'gaussian_classes' in name and 'coefficients' in name:
+                    del checkpoint_state_dict[name]
+                elif 'feature_classifier' in name and 'final_linear' in name:
+                    del checkpoint_state_dict[name]
+                    
+        model.load_state_dict(checkpoint_state_dict, strict=strict)
 
         # give model a chance to load something
         model.on_load_checkpoint(checkpoint)
@@ -485,6 +499,7 @@ class TrainerIOMixin(ABC):
         model = self.get_model()
 
         # load the state_dict on the model automatically
+        raise ValueError('load_state_dict() not updated in hpc_load() to handle skip_coefficients_and_linear=True')
         model.load_state_dict(checkpoint['state_dict'])
 
         # restore amp scaling

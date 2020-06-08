@@ -1577,8 +1577,25 @@ class LightningModule(ABC, DeviceDtypeModuleMixin, GradInformation, ModelIO, Mod
             kwargs.update(**model_args)
 
         # load the state_dict on the model automatically
+        if 'skip_coefficients_and_linear' in kwargs:
+            skip_coefficients_and_linear = kwargs['skip_coefficients_and_linear']
+            del kwargs['skip_coefficients_and_linear']
+        else:
+            skip_coefficients_and_linear = False
+            
         model = cls(*args, **kwargs)
-        model.load_state_dict(checkpoint['state_dict'])
+
+        checkpoint_state_dict = checkpoint['state_dict']
+        strict = True
+        if skip_coefficients_and_linear:
+            strict = False
+            for name, _tensor in dict(checkpoint_state_dict).items():
+                if 'gaussian_classes' in name and 'coefficients' in name:
+                    del checkpoint_state_dict[name]
+                elif 'feature_classifier' in name and 'final_linear' in name:
+                    del checkpoint_state_dict[name]
+
+        model.load_state_dict(checkpoint_state_dict, strict=strict)
 
         # give model a chance to load something
         model.on_load_checkpoint(checkpoint)
