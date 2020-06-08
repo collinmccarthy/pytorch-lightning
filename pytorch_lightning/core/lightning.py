@@ -1592,7 +1592,7 @@ class LightningModule(ABC, DeviceDtypeModuleMixin, GradInformation, ModelIO, Mod
             for name, _tensor in dict(checkpoint_state_dict).items():
                 if 'gaussian_classes' in name and 'coefficients' in name:
                     del checkpoint_state_dict[name]
-                elif 'feature_classifier' in name and 'final_linear' in name:
+                elif 'final_linear' in name:  # both feature_classifier and final_classifier
                     del checkpoint_state_dict[name]
 
         model.load_state_dict(checkpoint_state_dict, strict=strict)
